@@ -26,23 +26,19 @@ def tokenize(batch, tokenizer):
 def main():
     argv = sys.argv
     if len(argv) != 2:
-        print("Usage: python imdb_bert_sentiment_local.py <path_to_imdb_subset>")
+        print("invalid input")
         sys.exit(1)
 
-    imdb_subset_path = argv[1]  # e.g., "imdb_subset.json"
+    imdb_subset_path = argv[1]
 
-    # Part A: subset loading/creating
+    #subset loading
     if os.path.exists(imdb_subset_path):
         subset = load_dataset(
             "json",
             data_files=imdb_subset_path,
             split="train"
         )
-    else:
-        # If no subset file found, create a new one from IMDb
-        dataset = load_dataset("imdb")
-        subset = dataset["train"].shuffle(seed=42).select(range(500))
-        subset.to_json(imdb_subset_path, orient="records", lines=True)
+
 
     # Part B: sentiment analysis
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -57,7 +53,7 @@ def main():
 
     saved_model_dir = "./saved_model"
     if os.path.exists(saved_model_dir):
-        # Load the model and tokenizer
+        # Load the model and tokenizer6+66666666666666666
         model = AutoModelForSequenceClassification.from_pretrained(saved_model_dir)
     else:
         model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
