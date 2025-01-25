@@ -11,7 +11,7 @@ from transformers import (
     TrainingArguments
 )
 
-#setpadtoken
+#set pad token to suppress annoying warnings and eos errors
 def tokenize_imdb_reviews(dataset, tokenizer, max_length=150):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -26,15 +26,8 @@ def tokenize_imdb_reviews(dataset, tokenizer, max_length=150):
     tokenized = tokenized.rename_column("label", "labels")
     return tokenized
 
-#trainmodel
-def train_sentiment_model(
-        imdb_subset_path,
-        sentiment_label,
-        output_dir,
-        max_length=150,
-        num_epochs=3,
-        batch_size=4
-):
+#train the model
+def train_sentiment_model(imdb_subset_path, sentiment_label, output_dir, max_length=150, num_epochs=3, batch_size=4):
     dataset = load_dataset("json", data_files=imdb_subset_path, split="train")
     filtered_dataset = dataset.filter(lambda x: x["label"] == sentiment_label).select(range(100))
     model = GPT2LMHeadModel.from_pretrained("gpt2")
@@ -43,29 +36,14 @@ def train_sentiment_model(
         tokenizer.pad_token = tokenizer.eos_token
     tokenized_data = tokenize_imdb_reviews(filtered_dataset, tokenizer, max_length=max_length)
     collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-    train_args = TrainingArguments(
-        output_dir=output_dir,
-        overwrite_output_dir=True,
-        num_train_epochs=num_epochs,
-        per_device_train_batch_size=batch_size,
-        save_steps=10000,
-        save_total_limit=2,
-        logging_steps=50,
-        logging_dir=os.path.join(output_dir, "logs"),
-        report_to="none"
-    )
-    trainer = Trainer(
-        model=model,
-        args=train_args,
-        train_dataset=tokenized_data,
-        data_collator=collator
-    )
+    train_args = TrainingArguments(output_dir=output_dir, overwrite_output_dir=True, num_train_epochs=num_epochs, per_device_train_batch_size=batch_size, save_steps=10000, save_total_limit=2, logging_steps=50, logging_dir=os.path.join(output_dir, "logs"), report_to="none")
+    trainer = Trainer(model=model, args=train_args, train_dataset=tokenized_data, data_collator=collator)
     trainer.train()
     trainer.model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     return output_dir
 
-#generatereviews
+#generate new reviews
 def generate_reviews(model_dir, prompt="The movie was", num_reviews=5):
     tokenizer = GPT2Tokenizer.from_pretrained(model_dir)
     model = GPT2LMHeadModel.from_pretrained(model_dir)
@@ -77,17 +55,7 @@ def generate_reviews(model_dir, prompt="The movie was", num_reviews=5):
     att_mask = inputs.ne(tokenizer.pad_token_id)
     with torch.no_grad():
         for _ in range(num_reviews):
-            out = model.generate(
-                input_ids=inputs,
-                attention_mask=att_mask,
-                max_length=50,
-                min_length=10,
-                temperature=0.79,
-                do_sample=True,
-                top_k=50,
-                top_p=0.95,
-                repetition_penalty=1.2
-            )
+            out = model.generate(input_ids=inputs, attention_mask=att_mask, max_length=50, min_length=10, temperature=0.79, do_sample=True, top_k=50, top_p=0.95, repetition_penalty=1.2)
             text = tokenizer.decode(out[0], skip_special_tokens=True)
             reviews_list.append(text)
     return reviews_list
@@ -100,35 +68,26 @@ def main():
     args = parser.parse_args()
 
     os.makedirs(args.models_output_dir, exist_ok=True)
-    pos_model_dir = os.path.join(args.models_output_dir, "gpt2_positive")
-    neg_model_dir = os.path.join(args.models_output_dir, "gpt2_negative")
+    positive_model_dir = os.path.join(args.models_output_dir, "gpt2_positive")
+    negative_model_dir = os.path.join(args.models_output_dir, "gpt2_negative")
 
     print("training positive model.")
-    train_sentiment_model(
-        imdb_subset_path=args.imdb_subset_path,
-        sentiment_label=1,
-        output_dir=pos_model_dir
-    )
+    train_sentiment_model(imdb_subset_path=args.imdb_subset_path, sentiment_label=1, output_dir=positive_model_dir)
     print("training negative model.")
-    train_sentiment_model(
-        imdb_subset_path=args.imdb_subset_path,
-        sentiment_label=0,
-        output_dir=neg_model_dir
-    )
+    train_sentiment_model(imdb_subset_path=args.imdb_subset_path, sentiment_label=0, output_dir=negative_model_dir)
 
-    print("generating reviews...")
-    pos_reviews = generate_reviews(pos_model_dir, prompt="The movie was", num_reviews=5)
-    neg_reviews = generate_reviews(neg_model_dir, prompt="The movie was", num_reviews=5)
+    positive_reviews = generate_reviews(positive_model_dir, prompt="The movie was", num_reviews=5)
+    negative_reviews = generate_reviews(neg_model_dir, prompt="The movie was", num_reviews=5)
 
     with open(args.generated_reviews_path, "w", encoding="utf-8") as f:
         f.write("Reviews generated by positive model:\n")
-        for i, review in enumerate(pos_reviews, 1):
+        for i, review in enumerate(positive_reviews, 1):
             f.write(f"{i}. {review}\n\n")
         f.write("\nReviews generated by negative model:\n")
-        for i, review in enumerate(neg_reviews, 1):
+        for i, review in enumerate(negative_reviews, 1):
             f.write(f"{i}. {review}\n\n")
 
-    print("done.")
+    print("finished")
 
 if __name__ == "__main__":
     main()

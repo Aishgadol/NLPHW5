@@ -33,11 +33,7 @@ def main():
 
     #subset loading
     if os.path.exists(imdb_subset_path):
-        subset = load_dataset(
-            "json",
-            data_files=imdb_subset_path,
-            split="train"
-        )
+        subset = load_dataset("json" , data_files=imdb_subset_path, split="train")
 
 
     # Part B: sentiment analysis
@@ -59,26 +55,9 @@ def main():
         model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
 
         # create training arguments (epochs=4)
-        training_args = TrainingArguments(
-            output_dir="./results",
-            eval_strategy="epoch",
-            save_strategy="epoch",
-            per_device_train_batch_size=8,
-            per_device_eval_batch_size=8,
-            num_train_epochs=4,
-            seed=42,
-            logging_steps=10,
-            load_best_model_at_end=True,
-        )
+        training_args = TrainingArguments(output_dir="./results", eval_strategy="epoch", save_strategy="epoch", per_device_train_batch_size=8, per_device_eval_batch_size=8, num_train_epochs=4, seed=42, logging_steps=10, load_best_model_at_end=True,)
 
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_subset,
-            eval_dataset=test_subset,
-            tokenizer=tokenizer,
-            compute_metrics=compute_metrics,
-        )
+        trainer = Trainer(model=model, args=training_args, train_dataset=train_subset, eval_dataset=test_subset, tokenizer=tokenizer, compute_metrics=compute_metrics,)
 
         # train the model
         trainer.train()
@@ -88,16 +67,10 @@ def main():
         tokenizer.save_pretrained(saved_model_dir)
         print(f"Model and tokenizer saved to {saved_model_dir}")
 
-    # create trainer for evaluation
-    trainer = Trainer(
-        model=model,
-        args=TrainingArguments(output_dir="./results_eval"),
-        eval_dataset=test_subset,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics,
-    )
+    #create trainer for evaluation
+    trainer = Trainer(model=model, args=TrainingArguments(output_dir="./results_eval"), eval_dataset=test_subset, tokenizer=tokenizer, compute_metrics=compute_metrics,)
 
-    # Evaluate the model
+    #evaluate the model
     results = trainer.evaluate(test_subset)
     print(f'Accuracy on the test set: {results["eval_accuracy"]}')
 
